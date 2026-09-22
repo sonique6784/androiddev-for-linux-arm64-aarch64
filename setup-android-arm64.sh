@@ -3,6 +3,13 @@
 set -Eeuo pipefail
 trap 'printf "\nSetup failed at line %s. Correct the error above and rerun this script.\n" "$LINENO" >&2' ERR
 
+# Debian has no OpenJDK 11 package in its current release. Its ARM64 tools can
+# instead be unpacked in this workspace without sudo.
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if . /etc/os-release && [[ "$ID" == debian ]]; then
+    exec bash "$script_dir/setup-debian-arm64.sh" "$@"
+fi
+
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 sdk_root="$HOME/Android/Sdk"
 accept_licenses=false
