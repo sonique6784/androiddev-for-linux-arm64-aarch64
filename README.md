@@ -40,89 +40,52 @@ Getting Started
 
 To build this project, use "Import Project" in Android Studio.
 
-### Ubuntu ARM64 command-line setup
+### Linux ARM64 command-line setup
 
-Run the installer as your normal user. It uses `sudo` for Ubuntu packages and
-installs SDK files under `$HOME/Android/Sdk`:
+This workspace keeps the sample in `views-widgets-samples/RecyclerViewKotlin`.
+To recreate the clone from an empty workspace, run:
 
 ```bash
-./scripts/setup-android-arm64.sh
+git clone --depth 1 --filter=blob:none --sparse https://github.com/android/views-widgets-samples.git views-widgets-samples
+git -C views-widgets-samples sparse-checkout set RecyclerViewKotlin
+```
+
+Run the root installer as your normal user. It supports Ubuntu and Debian 13
+on ARM64, selects the matching internal platform backend, and keeps managed
+JDKs, native tools, SDK files, and Gradle state under
+`~/.local/share/android-arm64/`. Ubuntu installs its host prerequisites with
+`sudo apt-get`; Debian keeps its downloaded Android host tools user-local.
+Review the Android SDK terms before using the explicit license-acceptance flag.
+
+```bash
+./setup-android-arm64.sh --accept-licenses
 source "$HOME/.config/android-arm64/env.sh"
+cd views-widgets-samples/RecyclerViewKotlin
 ./gradlew :app:assembleDebug
 ```
 
-When sourced inside an Android Gradle project, `env.sh` walks upward to locate
-the Gradle root, reads literal `compileSdk`/`compileSdkVersion`,
-`buildToolsVersion`, version-catalog keys (`agp` and `androidGradlePlugin`),
-direct Android plugin declarations, and a project `org.gradle.java.home`
-setting. It
-selects JDK 11 for AGP 7 and earlier or JDK 17 for AGP 8 and later; an explicit
-JDK 11, 17, or 21 path in the project properties takes precedence. It downloads
-a missing declared Android SDK platform and
-build-tools package, then replaces the downloaded build-tools executables with
-the native ARM64 Ubuntu tools. `compileSdk` and `buildToolsVersion` supplied by a
-version catalog (including the standard `libs.versions.toml`) is supported.
-Values supplied by variables or convention plugins cannot be determined without
-running Gradle, so the script reports that it did not install that package.
+The installer is safe to rerun. `--accept-licenses` records license acceptance
+only when you have authorized it. `--sdk-root /absolute/path` selects a
+different SDK location, and `--skip-system-packages` uses already-provisioned
+host prerequisites. The project uses its own Gradle 6.5
+wrapper and Android Gradle Plugin 4.1.0; do not use Debian's older `gradle`
+package. The installer overrides Gradle's x86-64 AAPT2 download with the
+native ARM64 tool.
 
-Projects that contain `externalNativeBuild`, `CMakeLists.txt`, `Android.mk`, or
-an `ndkVersion` are treated as native projects. The activated shell installs the
-host CMake/Ninja prerequisites, selects the requested NDK (or the documented
-default), verifies its ARM64-host LLVM tools and CMake toolchain, and exports
-`ANDROID_NDK_HOME`/`ANDROID_NDK_ROOT` only for that shell. Unsupported NDK
-revisions fail explicitly rather than downloading Google's x86-64 Linux NDK.
-The downloaded ARM64 NDK archive is checksum-verified before it is installed.
-For NDK r29 the installer uses the GNU/Linux AArch64 release (not its
-Android/Bionic-host variant) and installs Kitware's checksum-verified AArch64
-CMake 4.1.0 alongside the SDK. The CMake directory is prepended to `PATH` only
-for native projects; Ninja remains the native Ubuntu package.
+The public command remains `setup-android-arm64.sh`. Distribution-specific
+provisioning lives in internal modules under `lib/android-arm64/platforms/`;
+adding another supported Linux distribution requires a new module that
+implements the shared backend contract, not another user-facing setup script.
 
-For a manually provisioned Ubuntu ARM64 host, the native prerequisites are
-`cmake`, `ninja-build`, `make`, `pkg-config`, `build-essential`, `libc6-dev`,
-`tar`, and `xz-utils`. These are the same packages installed by
-`setup-android-arm64.sh`; CMake 4.2.3 and Ninja 1.13.2 were manually installed
-for the NDK sample validation environment on 2026-09-11.
-
-Use `--sdk-root /absolute/path` to choose another SDK directory. For unattended
-setup, `--accept-licenses` accepts the Android SDK licenses on your behalf.
-The installer requires Ubuntu aarch64, network access, and sudo access. It is
-safe to rerun and preserves unrelated shell and Gradle settings.
-If an administrator already installed the listed Ubuntu prerequisites, use
-`--skip-system-packages` to configure the SDK without invoking sudo.
-
-The installer installs ARM64 OpenJDK 11, 17, and 21, including the Java compilers,
-and verifies each installation. This sample continues to use JDK 11.
-It uses Ubuntu's Python-based F-Droid `sdkmanager` and native ARM64 tools.
-It configures SDK executable links and the user-level Gradle setting
-`android.aapt2FromMavenOverride=/usr/bin/aapt2` so AGP does not execute its
-downloaded x86-64 AAPT2. It also sets `org.gradle.java.home` to JDK 11; this setting
-affects other Gradle projects for this user. New Bash sessions load the environment
-automatically. Existing terminals need the `source` command above.
-
-For another project requiring JDK 17, select it for both the Gradle launcher and
-daemon (the command-line property overrides the user-level JDK 11 setting):
-
-```bash
-source "$HOME/.config/android-arm64/env.sh"
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
-export PATH="$JAVA_HOME/bin:$PATH"
-./gradlew -Dorg.gradle.java.home="$JAVA_HOME" :app:assembleDebug
-```
-
-For JDK 21, replace `java-17-openjdk-arm64` with `java-21-openjdk-arm64`.
-Use the Java version supported by that project's Gradle and Android Gradle
-Plugin versions. Rerun the installer without `--skip-system-packages` to add
-JDK 17 and 21 to an existing installation.
-
-The debug APK is `app/build/outputs/apk/debug/app-debug.apk`. Verify or install it:
+The debug APK is `views-widgets-samples/RecyclerViewKotlin/app/build/outputs/apk/debug/app-debug.apk`.
+From the project directory, verify it with:
 
 ```bash
 apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
-adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-No Android Studio, emulator, or NDK is required for this sample. A connected,
-authorized Android device is needed only for the `adb install` step.
+Android Studio, an emulator, and an NDK are not needed. Installing the APK with
+`adb install -r` requires a connected, authorized Android device.
 
 Support
 -------
