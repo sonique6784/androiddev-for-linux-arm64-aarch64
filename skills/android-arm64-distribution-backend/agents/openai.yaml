@@ -1,0 +1,6 @@
+interface:
+  display_name: "Android ARM64 Distribution Backend"
+  short_description: "Add Linux backends to this installer"
+  default_prompt: "Use $android-arm64-distribution-backend to add support for Arch Linux."
+policy:
+  allow_implicit_invocation: false

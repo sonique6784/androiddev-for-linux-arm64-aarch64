@@ -7,7 +7,7 @@ required='backend_validate backend_provision backend_provision_jdk backend_jdk_p
 for module in "$root"/lib/android-arm64/platforms/*.sh; do
     bash -n "$module"
     for function in $required; do
-        rg -q "^$function[[:space:]]*\(\)" "$module" || {
+        grep -qE "^$function[[:space:]]*\(\)" "$module" || {
             echo "$module does not implement $function" >&2
             exit 1
         }
