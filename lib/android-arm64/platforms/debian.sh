@@ -58,3 +58,21 @@ export LD_LIBRARY_PATH='$LD_LIBRARY_PATH'
 export PYTHONPATH='$PYTHONPATH'
 EOF
 }
+
+# Emulator packages are the one privileged exception to the user-local model:
+# Waydroid needs the package manager, systemd units and /var/lib/waydroid.
+backend_provision_emulator() {
+    local emulator=$1 skip=$2 backports="${VERSION_CODENAME:?}-backports" list=/etc/apt/sources.list.d/android-arm64-backports.list
+    [[ "$emulator" == waydroid ]] || { echo "Unsupported emulator for Debian: $emulator" >&2; return 1; }
+    command -v waydroid >/dev/null && return 0
+    "$skip" && {
+        echo "Missing package: waydroid. Debian 13 ships it in $backports; rerun without --skip-system-packages." >&2
+        return 1
+    }
+    # waydroid and python3-gbinder are only published in trixie-backports.
+    if ! grep -rqs -- "$backports" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
+        echo "deb http://deb.debian.org/debian $backports main" | sudo tee "$list" >/dev/null
+    fi
+    sudo apt-get update
+    sudo apt-get install -y -t "$backports" waydroid
+}

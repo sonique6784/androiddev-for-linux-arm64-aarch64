@@ -14,8 +14,11 @@ Read this reference when adding or changing a distribution module.
 | `backend_jdk_path` | JDK version | Print only the absolute JDK home containing `bin/java` and `bin/javac`. |
 | `backend_tool_path` | tool name | Print only the absolute executable path for one supported tool. It must not download, install, or write files. |
 | `backend_environment` | none | Emit shell `export` commands needed for the generated `env.sh` to run backend tools in a new shell. Emit nothing when no extra environment is needed. |
+| `backend_provision_emulator` | emulator name (`waydroid`), skip (`true` or `false`) | Ensure the distribution can install that emulator. When `skip=false`, install it with the distribution's package manager, adding any repository it needs first (Debian uses `trixie-backports`, Ubuntu uses the official Waydroid repository on releases that predate the Ubuntu archive copy). When `skip=true`, do not invoke the package manager; name the missing package in the error and return nonzero. Return early when the emulator command is already installed. |
 
 The common installer calls `backend_provision` before a normal installation and before `--ensure-jdk`. It creates SDK shims, the Gradle AAPT2 override, and `~/.config/android-arm64/env.sh`; a backend must not reimplement those behaviors.
+
+Emulator support is opt-in through `--emulator NAME`. `backend_provision_emulator` is the only privileged, distribution-specific part: image downloads, services and runtime helpers live in `lib/android-arm64/emulators/<emulator>.sh`, which implements `emulator_validate`, `emulator_install`, `emulator_init`, `emulator_start`, `emulator_doctor` (detect known runtime failures such as a graphics stall that prevents boot, apply the safe fix, and never overwrite an explicitly configured GL driver), and `emulator_environment`. The `--emulator-start` and `--emulator-doctor` actions reuse those functions and, like `--ensure-jdk`, run before `backend_provision`, so repairing or restarting a provisioned emulator never touches the package manager. Emulator-specific flags (`--waydroid-image`, `--waydroid-size`) are parsed by the common installer and consumed inside the module, in this case by `emulator_init`, which persists them into Waydroid's own configuration.
 
 ## Required native ARM64 Android tools
 
@@ -49,7 +52,7 @@ Ubuntu installs native packages with `apt` and uses system JDK paths. Debian dow
 ## Change checklist
 
 - Add the `/etc/os-release` ID to `android_arm64_load_backend`.
-- Add all six functions to the new platform module.
+- Add all seven functions to the new platform module, including `backend_provision_emulator`, and verify that the distribution's repositories actually provide the emulator package it installs.
 - Verify every required-tool table command on the distribution’s ARM64 repositories before adding support.
 - Make `--skip-system-packages` fail with the missing command or package, without running the package manager.
 - Update `android_arm64_usage` and README support text.

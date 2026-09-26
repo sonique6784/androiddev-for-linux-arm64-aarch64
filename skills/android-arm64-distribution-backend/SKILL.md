@@ -13,7 +13,7 @@ Read [the backend contract](references/backend-contract.md) before editing. It r
 
 1. Inspect `common.sh`, every existing platform module, the contract test, and the README before choosing the implementation.
 2. Confirm the distribution's stable identifier from `/etc/os-release`, supported versions, package manager, ARM64 package availability, and whether its Android tools run natively on ARM64.
-3. Add the distribution to the dispatcher and create its module. Implement every required backend function with the same paths and command contracts as the existing modules.
+3. Add the distribution to the dispatcher and create its module. Implement every required backend function with the same paths and command contracts as the existing modules, including `backend_provision_emulator`, which is how the opt-in Waydroid emulator gets installed on that distribution.
 4. Verify the distribution's ARM64 repositories provide every command in the required-tool table: `sdkmanager`, `adb`, `fastboot`, `aapt`, `aapt2`, `aidl`, `zipalign`, `split-select`, and `apksigner`. Also verify their runtime dependencies. If any command is unavailable, report the command and repositories checked; do not register the distribution as supported unless a verified user-local alternative is feasible.
 5. Keep `--skip-system-packages` useful: it must avoid package-manager installation and fail clearly when prerequisites are absent. Do not add privileged commands to backends that follow the user-local provisioning model.
 6. Update the supported-host text and setup documentation. Run the contract and syntax checks, then perform an installation and Gradle build on the target distribution when practical.

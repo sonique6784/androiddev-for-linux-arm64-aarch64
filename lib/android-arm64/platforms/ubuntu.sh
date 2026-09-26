@@ -26,3 +26,23 @@ backend_provision_jdk() {
 backend_jdk_path() { printf '/usr/lib/jvm/java-%s-openjdk-arm64\n' "$1"; }
 backend_tool_path() { printf '%s/bin/%s\n' "$ANDROID_ARM64_STATE_ROOT" "$1"; }
 backend_environment() { :; }
+
+# Emulator packages are the one privileged exception to the native-package
+# model: Waydroid needs systemd units and /var/lib/waydroid.
+backend_provision_emulator() {
+    local emulator=$1 skip=$2
+    [[ "$emulator" == waydroid ]] || { echo "Unsupported emulator for Ubuntu: $emulator" >&2; return 1; }
+    command -v waydroid >/dev/null && return 0
+    "$skip" && {
+        echo 'Missing package: waydroid. Rerun without --skip-system-packages.' >&2
+        return 1
+    }
+    # waydroid entered the Ubuntu archive only with 26.10, so older releases
+    # use the official Waydroid repository.
+    if ! apt-cache show waydroid >/dev/null 2>&1; then
+        sudo apt-get install -y --no-install-recommends curl ca-certificates
+        curl -s https://repo.waydro.id | sudo bash
+    fi
+    sudo apt-get update
+    sudo apt-get install -y waydroid
+}

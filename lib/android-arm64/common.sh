@@ -4,7 +4,12 @@
 android_arm64_usage() {
     cat <<'EOF'
 Usage: ./setup-android-arm64.sh [--sdk-root PATH] [--accept-licenses] [--skip-system-packages]
+                                 [--emulator NAME] [--waydroid-image vanilla|gapps]
+                                 [--waydroid-size WIDTHxHEIGHT]
+                                 [--ensure-jdk 11|17|21] [--emulator-start NAME]
+                                 [--emulator-doctor NAME]
 Supported hosts: Ubuntu and Debian 13 on ARM64.
+Android emulators: none (default) and waydroid.
 EOF
 }
 
@@ -12,6 +17,9 @@ android_arm64_parse_arguments() {
     ANDROID_ARM64_ACCEPT_LICENSES=false
     ANDROID_ARM64_SKIP_SYSTEM_PACKAGES=false
     ANDROID_ARM64_SDK_ROOT="$HOME/.local/share/android-arm64/sdk"
+    ANDROID_ARM64_EMULATOR=none
+    ANDROID_ARM64_WAYDROID_IMAGE=GAPPS
+    ANDROID_ARM64_WAYDROID_SIZE=320x690
     ANDROID_ARM64_ACTION=install
     ANDROID_ARM64_ACTION_VALUE=
     while (($#)); do
@@ -19,11 +27,20 @@ android_arm64_parse_arguments() {
             --sdk-root) [[ $# -ge 2 && "$2" == /* && "$2" != / ]] || { echo '--sdk-root needs an absolute, non-root path.' >&2; return 2; }; ANDROID_ARM64_SDK_ROOT="$2"; shift 2 ;;
             --accept-licenses) ANDROID_ARM64_ACCEPT_LICENSES=true; shift ;;
             --skip-system-packages) ANDROID_ARM64_SKIP_SYSTEM_PACKAGES=true; shift ;;
+            --emulator) [[ $# -ge 2 ]] || { echo '--emulator needs none or waydroid.' >&2; return 2; }; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
+            --waydroid-image) [[ $# -ge 2 ]] || { echo '--waydroid-image needs vanilla or gapps.' >&2; return 2; }; case "$2" in vanilla|gapps) ANDROID_ARM64_WAYDROID_IMAGE="${2^^}" ;; *) echo '--waydroid-image needs vanilla or gapps.' >&2; return 2 ;; esac; shift 2 ;;
+            --waydroid-size) [[ $# -ge 2 && "$2" =~ ^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$ ]] || { echo '--waydroid-size needs WIDTHxHEIGHT, each side 100-9999.' >&2; return 2; }; ANDROID_ARM64_WAYDROID_SIZE="$2"; shift 2 ;;
+            --emulator-start) [[ $# -ge 2 ]] || { echo '--emulator-start needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-start; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
+            --emulator-doctor) [[ $# -ge 2 ]] || { echo '--emulator-doctor needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-doctor; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
             --ensure-jdk) [[ $# -ge 2 ]] || { echo '--ensure-jdk needs 11, 17, or 21.' >&2; return 2; }; ANDROID_ARM64_ACTION=ensure-jdk; ANDROID_ARM64_ACTION_VALUE=$2; shift 2 ;;
             --help) android_arm64_usage; return 10 ;;
             *) echo "Unknown argument: $1" >&2; return 2 ;;
         esac
     done
+    case "$ANDROID_ARM64_EMULATOR" in
+        none|waydroid) ;;
+        *) echo "Unsupported emulator: $ANDROID_ARM64_EMULATOR. Add a module under lib/android-arm64/emulators/." >&2; return 2 ;;
+    esac
     ANDROID_ARM64_SDK_ROOT="$(realpath -m -- "$ANDROID_ARM64_SDK_ROOT")"
 }
 
@@ -36,10 +53,19 @@ android_arm64_load_backend() {
     esac
     source "$ANDROID_ARM64_SCRIPT_DIR/lib/android-arm64/platforms/$ANDROID_ARM64_PLATFORM.sh"
     local name
-    for name in backend_validate backend_provision backend_provision_jdk backend_jdk_path backend_tool_path backend_environment; do
+    for name in backend_validate backend_provision backend_provision_jdk backend_jdk_path backend_tool_path backend_environment backend_provision_emulator; do
         declare -F "$name" >/dev/null || { echo "Backend $ANDROID_ARM64_PLATFORM is missing $name." >&2; return 1; }
     done
     backend_validate
+}
+
+android_arm64_load_emulator() {
+    local emulator=$1 name
+    [[ "$emulator" != none ]] || { echo 'No emulator selected; pass --emulator waydroid.' >&2; return 2; }
+    source "$ANDROID_ARM64_SCRIPT_DIR/lib/android-arm64/emulators/$emulator.sh"
+    for name in emulator_validate emulator_install emulator_init emulator_start emulator_doctor emulator_environment; do
+        declare -F "$name" >/dev/null || { echo "Emulator $emulator is missing $name." >&2; return 1; }
+    done
 }
 
 android_arm64_sdkmanager() {
@@ -105,8 +131,10 @@ EOF
     backend_environment >> "$runtime"
     cat >> "$runtime" <<'EOF'
 _android_arm64_project="$PWD"
-while [ "$_android_arm64_project" != / ] && [ ! -f "$_android_arm64_project/settings.gradle" ] && [ ! -f "$_android_arm64_project/settings.gradle.kts" ] && [ ! -x "$_android_arm64_project/gradlew" ]; do _android_arm64_project=${_android_arm64_project%/*}; done
-if [ "$_android_arm64_project" != / ]; then
+# ${dir%/*} yields "" rather than "/" one level below root, so stop on empty
+# as well; otherwise this loop spins forever outside a project.
+while [ -n "$_android_arm64_project" ] && [ "$_android_arm64_project" != / ] && [ ! -f "$_android_arm64_project/settings.gradle" ] && [ ! -f "$_android_arm64_project/settings.gradle.kts" ] && [ ! -x "$_android_arm64_project/gradlew" ]; do _android_arm64_project=${_android_arm64_project%/*}; done
+if [ -n "$_android_arm64_project" ] && [ "$_android_arm64_project" != / ]; then
   _android_arm64_agp=$(find "$_android_arm64_project" -type f \( -name '*.gradle' -o -name '*.gradle.kts' \) -not -path '*/build/*' -print0 2>/dev/null | xargs -0 -r grep -hE 'com\.android\.tools\.build:gradle:|com\.android\.(application|library).*version' 2>/dev/null | sed -nE 's/.*gradle:([0-9]+).*/\1/p; s/.*version[^0-9]*([0-9]+).*/\1/p' | head -n1)
   case "$_android_arm64_agp" in 8|9|[1-9][0-9]*) _android_arm64_jdk=17;; *) _android_arm64_jdk=11;; esac
   JAVA_HOME=$("$ANDROID_ARM64_LAUNCHER" --ensure-jdk "$_android_arm64_jdk" --skip-system-packages)
@@ -137,10 +165,53 @@ android_arm64_ensure_jdk() {
     [[ -x "$(backend_jdk_path "$1")/bin/javac" ]] || { echo "JDK $1 provisioning failed." >&2; return 1; }
 }
 
+android_arm64_append_emulator_environment() {
+    {
+        echo "# $1 emulator helpers, added by setup-android-arm64.sh."
+        emulator_environment
+    } >> "$ANDROID_ARM64_STATE_ROOT/env.sh"
+}
+
+android_arm64_setup_emulator() {
+    local emulator="$ANDROID_ARM64_EMULATOR"
+    android_arm64_load_emulator "$emulator"
+    emulator_validate
+    emulator_install "$ANDROID_ARM64_SKIP_SYSTEM_PACKAGES"
+    emulator_init
+    # Record the choice and emit the helpers before starting: if the start (or
+    # its boot check) fails, the user still needs doctor/status/logcat to recover.
+    printf '%s\n' "$emulator" > "$ANDROID_ARM64_STATE_ROOT/emulator"
+    android_arm64_append_emulator_environment "$emulator"
+    emulator_start
+    echo "Emulator ready: $emulator. Source '$HOME/.config/android-arm64/env.sh' and run android_arm64_emulator_start."
+}
+
+# A rerun without --emulator regenerates env.sh, so re-emit the helpers of an
+# emulator that was provisioned earlier. This path is deliberately privileged-
+# free: it does not install, initialize or start anything.
+android_arm64_restore_emulator_environment() {
+    local saved="$ANDROID_ARM64_STATE_ROOT/emulator" emulator
+    [[ -f "$saved" ]] || return 0
+    read -r emulator < "$saved"
+    [[ -n "$emulator" && "$emulator" != none ]] || return 0
+    android_arm64_load_emulator "$emulator"
+    android_arm64_append_emulator_environment "$emulator"
+}
+
 android_arm64_main() {
     ANDROID_ARM64_STATE_ROOT="${ANDROID_ARM64_STATE_ROOT:-$HOME/.local/share/android-arm64}"
     android_arm64_parse_arguments "$@" || { [[ $? -eq 10 ]] && return 0; return $?; }
     android_arm64_load_backend
+    case "$ANDROID_ARM64_ACTION" in
+        emulator-start|emulator-doctor)
+            # Starting or repairing an already-provisioned emulator must not
+            # touch the package manager, so these actions run before backend_provision.
+            android_arm64_load_emulator "$ANDROID_ARM64_EMULATOR"
+            emulator_validate
+            "${ANDROID_ARM64_ACTION//-/_}"
+            return
+            ;;
+    esac
     backend_provision "$ANDROID_ARM64_SKIP_SYSTEM_PACKAGES"
     if [[ "$ANDROID_ARM64_ACTION" == ensure-jdk ]]; then
         android_arm64_ensure_jdk "$ANDROID_ARM64_ACTION_VALUE"
@@ -156,5 +227,10 @@ android_arm64_main() {
     android_arm64_register_platform_tools
     android_arm64_write_runtime
     android_arm64_verify
+    if [[ "$ANDROID_ARM64_EMULATOR" != none ]]; then
+        android_arm64_setup_emulator
+    else
+        android_arm64_restore_emulator_environment
+    fi
     echo "Setup complete. Source '$HOME/.config/android-arm64/env.sh'."
 }
