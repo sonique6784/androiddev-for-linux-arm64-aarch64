@@ -75,7 +75,8 @@ The installer is safe to rerun. `--accept-licenses` records license acceptance
 only when you have authorized it. `--sdk-root /absolute/path` selects a
 different SDK location, `--skip-system-packages` uses already-provisioned
 host prerequisites, and `--emulator waydroid` additionally provisions the
-Android emulator described below. The project uses its own Gradle 6.5
+Waydroid emulator described below. `--emulator avd` imports an existing ARM64
+Android Virtual Device as described below. The project uses its own Gradle 6.5
 wrapper and Android Gradle Plugin 4.1.0; do not use Debian's older `gradle`
 package. The installer overrides Gradle's x86-64 AAPT2 download with the
 native ARM64 tool.
@@ -95,8 +96,8 @@ apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Android Studio and an NDK are not needed to build. Installing the APK with
-`adb install -r` targets a connected, authorized Android device, or the
-Waydroid emulator below.
+`adb install -r` targets a connected, authorized Android device or one of the
+opt-in emulators below.
 
 ### Android emulator (Waydroid)
 
@@ -159,6 +160,105 @@ window to move it. Desktop shortcuts can also resize or maximize it (for
 example, Alt+F8 to resize and Super+Up to maximize in GNOME). Starting a
 session never opens a window by itself, so after a reboot run
 `android_arm64_emulator_start` and `android_arm64_emulator_show_ui`.
+
+### Android Virtual Devices (experimental)
+
+Create a new Medium Phone AVD from an installed or downloadable ARM64 Android
+system image. List image package IDs, then use one with `--avd-create`. The
+interactive picker offers the same images and calls the same CLI creation
+command, so both routes create the same files. These commands do not need KVM,
+an emulator binary, root access, or the rest of the build toolchain:
+
+```bash
+./setup-android-arm64.sh --avd-list-images
+./setup-android-arm64.sh --avd-create My_Phone \
+  --avd-image 'system-images;android-36;google_apis_playstore_ps16k;arm64-v8a'
+# Or choose an image and enter a name in the terminal picker:
+./setup-android-arm64.sh --avd-tui
+./setup-android-arm64.sh --avd-list
+```
+
+The package ID above is an example; use an ID currently shown by
+`--avd-list-images`. The selected image is downloaded from Google's published
+catalog if it is not installed and its declared size and checksum are checked.
+Verified ZIP archives are kept under
+`~/.local/share/android-arm64/cache/avd-images/` and reused on retries.
+`--avd-list-images --json` supplies the picker and scripts. Created AVDs live
+under `~/.local/share/android-arm64/avd/home/`; creation never overwrites an
+existing name. The newest AVD becomes active. Use
+`./setup-android-arm64.sh --avd-select My_Phone` to switch devices after
+stopping any running AVD. `--sdk-root /absolute/path` selects another SDK root;
+later AVD commands use the saved root by default.
+
+Creation writes a 1080×2400, 420 dpi, 2 GB RAM, four-core Medium Phone
+configuration with a 10 GB data partition. Creation accepts SDK images with
+either `userdata.img` or an image-provided `data/` directory; the emulator uses
+that image layout to initialize the AVD's writable data. To register a native Linux ARM64 Android Emulator
+for a created device, pass `--avd-emulator-binary /absolute/path/to/emulator`
+with `--avd-create` or `--avd-select`. Then run
+`./setup-android-arm64.sh --emulator-start avd` on a KVM-enabled host after
+the normal suite setup has provided adb. The selected AVD is used by the
+existing start, stop, doctor, and adb helpers.
+
+```bash
+./setup-android-arm64.sh --accept-licenses
+./setup-android-arm64.sh --avd-select My_Phone \
+  --avd-emulator-binary /absolute/path/to/native/arm64/emulator
+./setup-android-arm64.sh --emulator-start avd
+```
+
+#### Import an existing AVD
+
+`--emulator avd` imports an existing ARM64 Android Virtual Device into a
+separate managed copy. It requires a working native Linux ARM64 build of
+Google's Android Emulator supplied with `--avd-emulator-binary`, usable
+`/dev/kvm`, and the matching SDK system image. Google's
+[emulator source documentation](https://android.googlesource.com/platform/external/qemu/+/refs/heads/emu-dev/)
+does not currently list Linux ARM64 among its supported build platforms. This path has
+not passed a boot test in this workspace. Stock distro `qemu-system-aarch64`
+cannot be substituted for the Android Emulator's Ranchu hardware.
+An AOSP source build is an optional way to provide the binary, but no Linux
+ARM64 build recipe has been validated here; pin its source revision before
+using the resulting binary with this installer.
+
+The supplied sample is `~/avd/Medium_Phone.ini` (capital `P`) and
+`~/avd/Medium_Phone.avd`. Its configuration requires
+`system-images;android-37.2;google_apis_playstore_ps16k;arm64-v8a`, which is
+not included with the AVD files. Setup checks Google's published system-image
+metadata for that exact package and verifies the downloaded archive checksum.
+The package was absent from the current
+[Google Play image feed](https://dl.google.com/android/repository/sys-img/google_apis_playstore/sys-img2-2.xml)
+when this path was added,
+so this sample cannot complete import until it is republished or an exact
+image is obtained separately. The AVD does not record its original system
+image revision, so boot and app data checks are required before treating a
+downloaded replacement as compatible.
+
+```bash
+./setup-android-arm64.sh --accept-licenses --emulator avd \
+  --avd-ini "$HOME/avd/Medium_Phone.ini" \
+  --avd-emulator-binary /absolute/path/to/native/arm64/emulator
+source "$HOME/.config/android-arm64/env.sh"
+android_arm64_emulator_start
+android_arm64_emulator_status
+```
+
+The installer verifies the three qcow2 backing chains, copies the AVD under
+`~/.local/share/android-arm64/avd/home/`, and regenerates its `.ini` with a
+Linux path. This importer currently requires the sample's userdata,
+encryption-key, and cache overlay layout. The copied AVD is about 4.3 GB. Its
+old macOS-generated `hardware-qemu.ini` is left out of the copy so the emulator can regenerate
+host paths. Launch uses a cold boot, software graphics, and adb serial
+`emulator-5580`; saved Quick Boot snapshots are not loaded. The original files
+under `~/avd/` are not modified. The usual `android_arm64_emulator_connect`,
+`install`, `launch`, `logcat`, `stop`, and `doctor` helpers are available after
+sourcing the environment. If startup fails, run
+`android_arm64_emulator_doctor` and read the managed `avd/emulator.log`.
+
+A successful import must reach `sys.boot_completed=1` and retain previously
+installed app data after a stop and restart. This acceptance check needs to run
+on a Linux ARM64 host with KVM and a validated native emulator build before
+the AVD path can be considered supported.
 
 Support
 -------

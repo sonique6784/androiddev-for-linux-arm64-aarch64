@@ -63,6 +63,13 @@ EOF
 # Waydroid needs the package manager, systemd units and /var/lib/waydroid.
 backend_provision_emulator() {
     local emulator=$1 skip=$2 backports="${VERSION_CODENAME:?}-backports" list=/etc/apt/sources.list.d/android-arm64-backports.list
+    if [[ "$emulator" == avd ]]; then
+        command -v qemu-img >/dev/null && return 0
+        "$skip" && { echo 'Missing qemu-img (qemu-utils); rerun without --skip-system-packages.' >&2; return 1; }
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends qemu-utils
+        return
+    fi
     [[ "$emulator" == waydroid ]] || { echo "Unsupported emulator for Debian: $emulator" >&2; return 1; }
     command -v waydroid >/dev/null && return 0
     "$skip" && {

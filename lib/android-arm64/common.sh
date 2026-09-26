@@ -6,10 +6,14 @@ android_arm64_usage() {
 Usage: ./setup-android-arm64.sh [--sdk-root PATH] [--accept-licenses] [--skip-system-packages]
                                  [--emulator NAME] [--waydroid-image vanilla|gapps]
                                  [--waydroid-size WIDTHxHEIGHT]
+                                 [--avd-ini PATH] [--avd-emulator-binary PATH]
+                                 [--avd-list-images [--json] | --avd-tui]
+                                 [--avd-create NAME --avd-image PACKAGE_ID]
+                                 [--avd-list | --avd-select NAME]
                                  [--ensure-jdk 11|17|21] [--emulator-start NAME]
                                  [--emulator-doctor NAME]
 Supported hosts: Ubuntu and Debian 13 on ARM64.
-Android emulators: none (default) and waydroid.
+Android emulators: none (default), waydroid, and avd (requires a native ARM64 emulator build).
 EOF
 }
 
@@ -17,31 +21,64 @@ android_arm64_parse_arguments() {
     ANDROID_ARM64_ACCEPT_LICENSES=false
     ANDROID_ARM64_SKIP_SYSTEM_PACKAGES=false
     ANDROID_ARM64_SDK_ROOT="$HOME/.local/share/android-arm64/sdk"
+    ANDROID_ARM64_SDK_ROOT_EXPLICIT=false
     ANDROID_ARM64_EMULATOR=none
     ANDROID_ARM64_WAYDROID_IMAGE=GAPPS
     ANDROID_ARM64_WAYDROID_SIZE=320x690
+    ANDROID_ARM64_AVD_INI=
+    ANDROID_ARM64_AVD_EMULATOR_BINARY=
+    ANDROID_ARM64_AVD_IMAGE=
+    ANDROID_ARM64_JSON=false
     ANDROID_ARM64_ACTION=install
     ANDROID_ARM64_ACTION_VALUE=
+    local action_count=0
     while (($#)); do
         case "$1" in
-            --sdk-root) [[ $# -ge 2 && "$2" == /* && "$2" != / ]] || { echo '--sdk-root needs an absolute, non-root path.' >&2; return 2; }; ANDROID_ARM64_SDK_ROOT="$2"; shift 2 ;;
+            --sdk-root) [[ $# -ge 2 && "$2" == /* && "$2" != / ]] || { echo '--sdk-root needs an absolute, non-root path.' >&2; return 2; }; ANDROID_ARM64_SDK_ROOT="$2"; ANDROID_ARM64_SDK_ROOT_EXPLICIT=true; shift 2 ;;
             --accept-licenses) ANDROID_ARM64_ACCEPT_LICENSES=true; shift ;;
             --skip-system-packages) ANDROID_ARM64_SKIP_SYSTEM_PACKAGES=true; shift ;;
-            --emulator) [[ $# -ge 2 ]] || { echo '--emulator needs none or waydroid.' >&2; return 2; }; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
+            --emulator) [[ $# -ge 2 ]] || { echo '--emulator needs none, waydroid, or avd.' >&2; return 2; }; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
             --waydroid-image) [[ $# -ge 2 ]] || { echo '--waydroid-image needs vanilla or gapps.' >&2; return 2; }; case "$2" in vanilla|gapps) ANDROID_ARM64_WAYDROID_IMAGE="${2^^}" ;; *) echo '--waydroid-image needs vanilla or gapps.' >&2; return 2 ;; esac; shift 2 ;;
             --waydroid-size) [[ $# -ge 2 && "$2" =~ ^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$ ]] || { echo '--waydroid-size needs WIDTHxHEIGHT, each side 100-9999.' >&2; return 2; }; ANDROID_ARM64_WAYDROID_SIZE="$2"; shift 2 ;;
-            --emulator-start) [[ $# -ge 2 ]] || { echo '--emulator-start needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-start; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
-            --emulator-doctor) [[ $# -ge 2 ]] || { echo '--emulator-doctor needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-doctor; ANDROID_ARM64_EMULATOR="$2"; shift 2 ;;
-            --ensure-jdk) [[ $# -ge 2 ]] || { echo '--ensure-jdk needs 11, 17, or 21.' >&2; return 2; }; ANDROID_ARM64_ACTION=ensure-jdk; ANDROID_ARM64_ACTION_VALUE=$2; shift 2 ;;
+            --avd-ini) [[ $# -ge 2 && "$2" == /* ]] || { echo '--avd-ini needs an absolute path.' >&2; return 2; }; ANDROID_ARM64_AVD_INI="$2"; shift 2 ;;
+            --avd-emulator-binary) [[ $# -ge 2 && "$2" == /* ]] || { echo '--avd-emulator-binary needs an absolute path.' >&2; return 2; }; ANDROID_ARM64_AVD_EMULATOR_BINARY="$2"; shift 2 ;;
+            --avd-image) [[ $# -ge 2 ]] || { echo '--avd-image needs a package ID.' >&2; return 2; }; ANDROID_ARM64_AVD_IMAGE="$2"; shift 2 ;;
+            --avd-list-images) ANDROID_ARM64_ACTION=avd-list-images; ((action_count+=1)); shift ;;
+            --avd-create) [[ $# -ge 2 ]] || { echo '--avd-create needs a name.' >&2; return 2; }; ANDROID_ARM64_ACTION=avd-create; ANDROID_ARM64_ACTION_VALUE="$2"; ((action_count+=1)); shift 2 ;;
+            --avd-tui) ANDROID_ARM64_ACTION=avd-tui; ((action_count+=1)); shift ;;
+            --avd-list) ANDROID_ARM64_ACTION=avd-list; ((action_count+=1)); shift ;;
+            --avd-select) [[ $# -ge 2 ]] || { echo '--avd-select needs a name.' >&2; return 2; }; ANDROID_ARM64_ACTION=avd-select; ANDROID_ARM64_ACTION_VALUE="$2"; ((action_count+=1)); shift 2 ;;
+            --json) ANDROID_ARM64_JSON=true; shift ;;
+            --emulator-start) [[ $# -ge 2 ]] || { echo '--emulator-start needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-start; ANDROID_ARM64_EMULATOR="$2"; ((action_count+=1)); shift 2 ;;
+            --emulator-doctor) [[ $# -ge 2 ]] || { echo '--emulator-doctor needs an emulator name.' >&2; return 2; }; ANDROID_ARM64_ACTION=emulator-doctor; ANDROID_ARM64_EMULATOR="$2"; ((action_count+=1)); shift 2 ;;
+            --ensure-jdk) [[ $# -ge 2 ]] || { echo '--ensure-jdk needs 11, 17, or 21.' >&2; return 2; }; ANDROID_ARM64_ACTION=ensure-jdk; ANDROID_ARM64_ACTION_VALUE=$2; ((action_count+=1)); shift 2 ;;
             --help) android_arm64_usage; return 10 ;;
             *) echo "Unknown argument: $1" >&2; return 2 ;;
         esac
     done
+    ((action_count<=1)) || { echo 'Choose only one action.' >&2; return 2; }
+    [[ "$ANDROID_ARM64_ACTION" == avd-create && -n "$ANDROID_ARM64_AVD_IMAGE" || "$ANDROID_ARM64_ACTION" != avd-create && -z "$ANDROID_ARM64_AVD_IMAGE" ]] || { echo '--avd-image requires --avd-create, and creation requires --avd-image.' >&2; return 2; }
+    [[ "$ANDROID_ARM64_JSON" == false || "$ANDROID_ARM64_ACTION" == avd-list-images ]] || { echo '--json requires --avd-list-images.' >&2; return 2; }
     case "$ANDROID_ARM64_EMULATOR" in
-        none|waydroid) ;;
+        none|waydroid|avd) ;;
         *) echo "Unsupported emulator: $ANDROID_ARM64_EMULATOR. Add a module under lib/android-arm64/emulators/." >&2; return 2 ;;
     esac
+    if [[ -n "$ANDROID_ARM64_AVD_INI" && ( "$ANDROID_ARM64_ACTION" != install || "$ANDROID_ARM64_EMULATOR" != avd ) ]]; then
+        echo '--avd-ini requires --emulator avd setup.' >&2
+        return 2
+    fi
+    if [[ -n "$ANDROID_ARM64_AVD_EMULATOR_BINARY" && ! ( "$ANDROID_ARM64_ACTION" == install && "$ANDROID_ARM64_EMULATOR" == avd ) && "$ANDROID_ARM64_ACTION" != avd-create && "$ANDROID_ARM64_ACTION" != avd-select ]]; then
+        echo '--avd-emulator-binary requires AVD setup, creation, or selection.' >&2
+        return 2
+    fi
+    if [[ "$ANDROID_ARM64_ACTION" == avd-* && "$ANDROID_ARM64_EMULATOR" == waydroid ]]; then
+        echo 'AVD actions cannot be combined with --emulator waydroid.' >&2
+        return 2
+    fi
     ANDROID_ARM64_SDK_ROOT="$(realpath -m -- "$ANDROID_ARM64_SDK_ROOT")"
+    if [[ "$ANDROID_ARM64_SDK_ROOT_EXPLICIT" == false && "$ANDROID_ARM64_ACTION" == avd-* && -f "$ANDROID_ARM64_STATE_ROOT/avd/sdk-root" ]]; then
+        ANDROID_ARM64_SDK_ROOT="$(cat "$ANDROID_ARM64_STATE_ROOT/avd/sdk-root")"
+    fi
 }
 
 android_arm64_load_backend() {
@@ -61,7 +98,7 @@ android_arm64_load_backend() {
 
 android_arm64_load_emulator() {
     local emulator=$1 name
-    [[ "$emulator" != none ]] || { echo 'No emulator selected; pass --emulator waydroid.' >&2; return 2; }
+    [[ "$emulator" != none ]] || { echo 'No emulator selected; pass --emulator waydroid or --emulator avd.' >&2; return 2; }
     source "$ANDROID_ARM64_SCRIPT_DIR/lib/android-arm64/emulators/$emulator.sh"
     for name in emulator_validate emulator_install emulator_init emulator_start emulator_doctor emulator_environment; do
         declare -F "$name" >/dev/null || { echo "Emulator $emulator is missing $name." >&2; return 1; }
@@ -203,6 +240,17 @@ android_arm64_main() {
     android_arm64_parse_arguments "$@" || { [[ $? -eq 10 ]] && return 0; return $?; }
     android_arm64_load_backend
     case "$ANDROID_ARM64_ACTION" in
+        avd-list-images|avd-create|avd-tui|avd-list|avd-select)
+            android_arm64_load_emulator avd
+            case "$ANDROID_ARM64_ACTION" in
+                avd-list-images) avd_list_images ;;
+                avd-create) avd_create "$ANDROID_ARM64_ACTION_VALUE" "$ANDROID_ARM64_AVD_IMAGE" ;;
+                avd-tui) avd_tui ;;
+                avd-list) avd_list ;;
+                avd-select) avd_select "$ANDROID_ARM64_ACTION_VALUE" ;;
+            esac
+            return
+            ;;
         emulator-start|emulator-doctor)
             # Starting or repairing an already-provisioned emulator must not
             # touch the package manager, so these actions run before backend_provision.
