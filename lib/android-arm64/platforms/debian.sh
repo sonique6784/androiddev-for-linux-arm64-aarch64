@@ -64,10 +64,23 @@ EOF
 backend_provision_emulator() {
     local emulator=$1 skip=$2 backports="${VERSION_CODENAME:?}-backports" list=/etc/apt/sources.list.d/android-arm64-backports.list
     if [[ "$emulator" == avd ]]; then
-        command -v qemu-img >/dev/null && return 0
-        "$skip" && { echo 'Missing qemu-img (qemu-utils); rerun without --skip-system-packages.' >&2; return 1; }
+        local -a packages=(qemu-utils)
+        if [[ -z "$ANDROID_ARM64_AVD_QEMU_BINARY" ]]; then
+            packages+=(ca-certificates curl git repo python3 cmake ninja-build make pkg-config build-essential libglib2.0-dev libpixman-1-dev libssl-dev zlib1g-dev libfdt-dev libslirp-dev libusb-1.0-0-dev libncurses-dev libgtk-3-dev)
+        fi
+        if command -v qemu-img >/dev/null \
+            && { [[ -n "$ANDROID_ARM64_AVD_QEMU_BINARY" ]] || { command -v repo >/dev/null && command -v git >/dev/null && command -v cmake >/dev/null && command -v ninja >/dev/null && command -v make >/dev/null && command -v pkg-config >/dev/null && command -v cc >/dev/null && command -v c++ >/dev/null; }; }; then
+            return 0
+        fi
+        "$skip" && { echo 'Missing qemu-img or Android QEMU build prerequisites; rerun without --skip-system-packages.' >&2; return 1; }
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends qemu-utils
+        sudo apt-get install -y --no-install-recommends "${packages[@]}"
+        command -v qemu-img >/dev/null || { echo 'Missing qemu-img (qemu-utils).' >&2; return 1; }
+        if [[ -z "$ANDROID_ARM64_AVD_QEMU_BINARY" ]]; then
+            for tool in repo git python3 cmake ninja make pkg-config cc c++; do
+                command -v "$tool" >/dev/null || { echo "Missing Android QEMU build tool: $tool" >&2; return 1; }
+            done
+        fi
         return
     fi
     [[ "$emulator" == waydroid ]] || { echo "Unsupported emulator for Debian: $emulator" >&2; return 1; }

@@ -6,14 +6,14 @@ android_arm64_usage() {
 Usage: ./setup-android-arm64.sh [--sdk-root PATH] [--accept-licenses] [--skip-system-packages]
                                  [--emulator NAME] [--waydroid-image vanilla|gapps]
                                  [--waydroid-size WIDTHxHEIGHT]
-                                 [--avd-ini PATH] [--avd-emulator-binary PATH]
+                                 [--avd-ini PATH] [--avd-qemu-binary PATH]
                                  [--avd-list-images [--json] | --avd-tui]
                                  [--avd-create NAME --avd-image PACKAGE_ID]
                                  [--avd-list | --avd-select NAME]
                                  [--ensure-jdk 11|17|21] [--emulator-start NAME]
                                  [--emulator-doctor NAME]
 Supported hosts: Ubuntu and Debian 13 on ARM64.
-Android emulators: none (default), waydroid, and avd (requires a native ARM64 emulator build).
+Android emulators: none (default), waydroid, and avd (requires Android-enabled ARM64 QEMU).
 EOF
 }
 
@@ -26,7 +26,7 @@ android_arm64_parse_arguments() {
     ANDROID_ARM64_WAYDROID_IMAGE=GAPPS
     ANDROID_ARM64_WAYDROID_SIZE=320x690
     ANDROID_ARM64_AVD_INI=
-    ANDROID_ARM64_AVD_EMULATOR_BINARY=
+    ANDROID_ARM64_AVD_QEMU_BINARY=
     ANDROID_ARM64_AVD_IMAGE=
     ANDROID_ARM64_JSON=false
     ANDROID_ARM64_ACTION=install
@@ -41,7 +41,7 @@ android_arm64_parse_arguments() {
             --waydroid-image) [[ $# -ge 2 ]] || { echo '--waydroid-image needs vanilla or gapps.' >&2; return 2; }; case "$2" in vanilla|gapps) ANDROID_ARM64_WAYDROID_IMAGE="${2^^}" ;; *) echo '--waydroid-image needs vanilla or gapps.' >&2; return 2 ;; esac; shift 2 ;;
             --waydroid-size) [[ $# -ge 2 && "$2" =~ ^[1-9][0-9]{2,3}x[1-9][0-9]{2,3}$ ]] || { echo '--waydroid-size needs WIDTHxHEIGHT, each side 100-9999.' >&2; return 2; }; ANDROID_ARM64_WAYDROID_SIZE="$2"; shift 2 ;;
             --avd-ini) [[ $# -ge 2 && "$2" == /* ]] || { echo '--avd-ini needs an absolute path.' >&2; return 2; }; ANDROID_ARM64_AVD_INI="$2"; shift 2 ;;
-            --avd-emulator-binary) [[ $# -ge 2 && "$2" == /* ]] || { echo '--avd-emulator-binary needs an absolute path.' >&2; return 2; }; ANDROID_ARM64_AVD_EMULATOR_BINARY="$2"; shift 2 ;;
+            --avd-qemu-binary) [[ $# -ge 2 && "$2" == /* ]] || { echo '--avd-qemu-binary needs an absolute path.' >&2; return 2; }; ANDROID_ARM64_AVD_QEMU_BINARY="$2"; shift 2 ;;
             --avd-image) [[ $# -ge 2 ]] || { echo '--avd-image needs a package ID.' >&2; return 2; }; ANDROID_ARM64_AVD_IMAGE="$2"; shift 2 ;;
             --avd-list-images) ANDROID_ARM64_ACTION=avd-list-images; ((action_count+=1)); shift ;;
             --avd-create) [[ $# -ge 2 ]] || { echo '--avd-create needs a name.' >&2; return 2; }; ANDROID_ARM64_ACTION=avd-create; ANDROID_ARM64_ACTION_VALUE="$2"; ((action_count+=1)); shift 2 ;;
@@ -67,8 +67,8 @@ android_arm64_parse_arguments() {
         echo '--avd-ini requires --emulator avd setup.' >&2
         return 2
     fi
-    if [[ -n "$ANDROID_ARM64_AVD_EMULATOR_BINARY" && ! ( "$ANDROID_ARM64_ACTION" == install && "$ANDROID_ARM64_EMULATOR" == avd ) && "$ANDROID_ARM64_ACTION" != avd-create && "$ANDROID_ARM64_ACTION" != avd-select ]]; then
-        echo '--avd-emulator-binary requires AVD setup, creation, or selection.' >&2
+    if [[ -n "$ANDROID_ARM64_AVD_QEMU_BINARY" && ! ( "$ANDROID_ARM64_ACTION" == install && "$ANDROID_ARM64_EMULATOR" == avd ) && "$ANDROID_ARM64_ACTION" != avd-create && "$ANDROID_ARM64_ACTION" != avd-select ]]; then
+        echo '--avd-qemu-binary requires AVD setup, creation, or selection.' >&2
         return 2
     fi
     if [[ "$ANDROID_ARM64_ACTION" == avd-* && "$ANDROID_ARM64_EMULATOR" == waydroid ]]; then

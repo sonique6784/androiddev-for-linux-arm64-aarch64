@@ -126,7 +126,7 @@ def create(state, sdk_root, name, package):
             ini.unlink(missing_ok=True)
         raise
     activate(state, sdk_root, name)
-    print(f"Created {directory}. Start it after configuring a native Linux ARM64 Android Emulator and KVM.")
+    print(f"Created {directory}. Start it with qemu-system-aarch64; the AVD backend uses KVM when available and TCG otherwise.")
 
 
 def list_avds(state):

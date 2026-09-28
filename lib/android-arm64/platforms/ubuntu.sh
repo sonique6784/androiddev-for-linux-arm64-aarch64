@@ -30,12 +30,34 @@ backend_environment() { :; }
 # Emulator packages are the one privileged exception to the native-package
 # model: Waydroid needs systemd units and /var/lib/waydroid.
 backend_provision_emulator() {
-    local emulator=$1 skip=$2
+    local emulator=$1 skip=$2 need_build=true tool
     if [[ "$emulator" == avd ]]; then
-        command -v qemu-img >/dev/null && return 0
-        "$skip" && { echo 'Missing qemu-img (qemu-utils); rerun without --skip-system-packages.' >&2; return 1; }
+        [[ -n "$ANDROID_ARM64_AVD_QEMU_BINARY" ]] && need_build=false
+        local -a missing=()
+        command -v qemu-img >/dev/null || missing+=(qemu-utils)
+        if "$need_build"; then
+            for tool in repo git python3 cmake ninja make pkg-config cc c++; do
+                command -v "$tool" >/dev/null || case "$tool" in
+                    repo) missing+=(repo) ;;
+                    cmake) missing+=(cmake) ;;
+                    ninja) missing+=(ninja-build) ;;
+                    make) missing+=(make) ;;
+                    pkg-config) missing+=(pkg-config) ;;
+                    cc|c++) missing+=(build-essential) ;;
+                esac
+            done
+            missing+=(ca-certificates curl git python3 repo cmake ninja-build make pkg-config build-essential libglib2.0-dev libpixman-1-dev libssl-dev zlib1g-dev libfdt-dev libslirp-dev libusb-1.0-0-dev libncurses-dev libgtk-3-dev)
+        fi
+        ((${#missing[@]} == 0)) && return 0
+        "$skip" && { echo "Missing Android QEMU build prerequisites: ${missing[*]}; rerun without --skip-system-packages." >&2; return 1; }
         sudo apt-get update
-        sudo apt-get install -y --no-install-recommends qemu-utils
+        sudo apt-get install -y --no-install-recommends "${missing[@]}"
+        command -v qemu-img >/dev/null || { echo 'Missing qemu-img (qemu-utils).' >&2; return 1; }
+        if "$need_build"; then
+            for tool in repo git python3 cmake ninja make pkg-config cc c++; do
+                command -v "$tool" >/dev/null || { echo "Missing Android QEMU build tool: $tool" >&2; return 1; }
+            done
+        fi
         return
     fi
     [[ "$emulator" == waydroid ]] || { echo "Unsupported emulator for Ubuntu: $emulator" >&2; return 1; }

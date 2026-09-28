@@ -3,3 +3,7 @@
 __pycache__
 # Sparse clone of the sample app; recreate with the commands in README.md.
 views-widgets-samples/
+# Local QEMU checkout/build state and generated/downloaded archives.
+.android-qemu-build-state/
+/androiddev-aarch64.zip
+/sdk-repo-linux_aarch64-emulator-13288691.zip

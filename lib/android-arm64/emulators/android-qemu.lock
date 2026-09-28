@@ -1,0 +1,5 @@
+# Android Emulator QEMU source revision containing the linux-aarch64 targets.
+repository=https://android.googlesource.com/platform/external/qemu
+revision=e915419aee49f702b654e9475047cbc5e873e395
+manifest_branch=emu-master-dev
+target=linux_aarch64
