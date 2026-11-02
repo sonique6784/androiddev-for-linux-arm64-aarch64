@@ -1,293 +1,395 @@
-Android RecyclerView Sample (Kotlin)
-====================================
+# Android Development Environment for Linux ARM64 (aarch64)
 
-This application implements a RecyclerView in Kotlin with ListAdapter, onClickListener 
-and Headers. If you are looking for a simpler sample, look at the RecyclerViewSimple sample
-in the directory.
+Set up a command-line Android development environment on a **Linux ARM64 host**.
+This project brings together native Android tools, Java runtimes, SDK packages,
+and optional Android runtimes so you can build, install, and debug Android apps
+without an x86-64 development machine.
 
+![Android development on Debian 13 ARM64, showing a successful Gradle build, adb installation, and the running RecyclerView sample app](androiddev-linux-arm64-aarch64.png)
 
-Introduction
-------------
+*Building and running a Kotlin Android app on Debian 13 (`aarch64`).*
 
-Sample demonstrating the use of [RecyclerView][1] to layout elements with a
-[LinearLayoutManager][2].
+Use it with Java and Kotlin Android projects through their Gradle wrapper.
+Projects containing NDK C/C++ code additionally need a compatible NDK that runs
+on the ARM64 host; **the installer does not currently provision an NDK**.
+Android Studio is not required and is not installed.
 
-[RecyclerView][1] can display large datasets that can be scrolled
-efficiently by recycling a limited number of views. [ListAdapter][3] is used to 
-efficiently compute diffs when items are added/removed from the list. Click listeners can be
-defined when [ViewHolder][4] views are instantiated. 
+## Supported hosts
 
+| Distribution | Provisioning approach |
+| --- | --- |
+| Ubuntu on ARM64 | Installs native prerequisites and OpenJDK packages with `sudo apt-get`. Availability depends on the release's repositories. |
+| Debian 13 on ARM64 | Downloads and extracts Android host tools into user-local storage; downloads managed Eclipse Temurin JDKs as needed. |
+| Arch Linux / Arch Linux ARM | Installs native prerequisites with `sudo pacman -S --needed`; supplies additional Android tools from pinned, verified Debian ARM64 or architecture-independent packages in user-local storage. |
 
-[1]: https://developer.android.com/reference/kotlin/androidx/recyclerview/widget/RecyclerView
-[2]: https://developer.android.com/reference/androidx/recyclerview/widget/LinearLayoutManager
-[3]: https://developer.android.com/reference/androidx/recyclerview/widget/ListAdapter
-[4]: https://developer.android.com/reference/androidx/recyclerview/widget/RecyclerView.ViewHolder
+Run setup as your normal user. It requests `sudo` for system packages and
+runtime services where needed. Internet access is required for downloads.
+The installer selects distributions by `ID` in `/etc/os-release`; derivatives
+are not automatically enabled through `ID_LIKE`. macOS and x86-64 Linux are
+outside this installer's host support.
 
-Pre-requisites
---------------
+On Arch, update the system with `sudo pacman -Syu` before setup. The installer
+does not refresh package databases or perform a full system upgrade. Full
+installation and sample-build acceptance on Arch ARM64 remain pending; Debian
+ARM64 is the development reference host.
 
-- JDK 11
-- Android SDK platform 30 and build-tools 29.0.2
-- Android Gradle Plugin 4.1.0 (Gradle 6.5 is downloaded by the wrapper)
+## Quick start
 
-Screenshots
--------------
-
-![image](https://user-images.githubusercontent.com/46006059/98028846-8b6df700-1dc3-11eb-9f0b-ad93569be189.png)
-
-Getting Started
----------------
-
-To build this project, use "Import Project" in Android Studio.
-
-### Linux ARM64 command-line setup
-
-This workspace keeps the sample in `views-widgets-samples/RecyclerViewKotlin`.
-To recreate the clone from an empty workspace, run:
+Clone the repository and review the Android SDK license terms before passing
+`--accept-licenses`:
 
 ```bash
-git clone --depth 1 --filter=blob:none --sparse https://github.com/android/views-widgets-samples.git views-widgets-samples
-git -C views-widgets-samples sparse-checkout set RecyclerViewKotlin
-```
-
-The sample still declares `jcenter()`, which no longer serves artifacts. Switch
-both repository blocks to `mavenCentral()` before building:
-
-```bash
-sed -i 's/jcenter()/mavenCentral()/g' views-widgets-samples/RecyclerViewKotlin/build.gradle
-```
-
-Run the root installer as your normal user. It supports Ubuntu and Debian 13
-on ARM64, selects the matching internal platform backend, and keeps managed
-JDKs, native tools, SDK files, and Gradle state under
-`~/.local/share/android-arm64/`. Ubuntu installs its host prerequisites with
-`sudo apt-get`; Debian keeps its downloaded Android host tools user-local.
-Review the Android SDK terms before using the explicit license-acceptance flag.
-
-```bash
+git clone https://github.com/sonique6784/androiddev-for-linux-arm64-aarch64.git
+cd androiddev-for-linux-arm64-aarch64
 ./setup-android-arm64.sh --accept-licenses
-source "$HOME/.config/android-arm64/env.sh"
-cd views-widgets-samples/RecyclerViewKotlin
-./gradlew :app:assembleDebug
 ```
 
-The installer is safe to rerun. `--accept-licenses` records license acceptance
-only when you have authorized it. `--sdk-root /absolute/path` selects a
-different SDK location, `--skip-system-packages` uses already-provisioned
-host prerequisites, and `--emulator waydroid` additionally provisions the
-Waydroid emulator described below. `--emulator avd` imports an existing ARM64
-Android Virtual Device as described below. The project uses its own Gradle 6.5
-wrapper and Android Gradle Plugin 4.1.0; do not use Debian's older `gradle`
-package. The installer overrides Gradle's x86-64 AAPT2 download with the
-native ARM64 tool.
-
-The public command remains `setup-android-arm64.sh`. Distribution-specific
-provisioning lives in internal modules under `lib/android-arm64/platforms/`;
-adding another supported Linux distribution requires a new module that
-implements the shared backend contract, not another user-facing setup script.
-Emulator support follows the same shape under
-`lib/android-arm64/emulators/` and is opt-in through `--emulator NAME`.
-
-The debug APK is `views-widgets-samples/RecyclerViewKotlin/app/build/outputs/apk/debug/app-debug.apk`.
-From the project directory, verify it with:
+Then enter your Android project and load the generated environment in Bash:
 
 ```bash
+cd /path/to/your/android-project
+source "$HOME/.config/android-arm64/env.sh"
+./gradlew assembleDebug
+```
+
+Source the environment in each new shell, from inside the project so its
+Android Gradle Plugin declaration can be inspected for JDK selection. Use the
+project's own `gradlew`; setup does not install a standalone Gradle distribution.
+The wrapper downloads its configured Gradle version on first use.
+
+For a conventional `app` module, the debug APK is usually at
+`app/build/outputs/apk/debug/app-debug.apk`. Module names and build variants can
+change that path.
+
+## Tools and components
+
+“Included” means provisioned or configured by setup, with the optional and
+project-provided components identified below.
+
+| Component | Purpose and availability |
+| --- | --- |
+| Android SDK platform | `platforms;android-30` is installed by default, including `android.jar`. |
+| Android SDK build tools | `build-tools;29.0.2` is installed by default; key host executables are replaced with native ARM64 tools. |
+| `sdkmanager` | Python-based SDK package manager supplied by the distribution or local package extraction. |
+| `adb` | Connect to devices, install APKs, run shell commands, and read logs. Registered in the managed SDK's `platform-tools`. |
+| `fastboot` | Android bootloader communication tool, also registered in `platform-tools`. |
+| `aapt`, `aapt2` | Compile and package Android resources using native ARM64 executables. |
+| `aidl` | Compile Android Interface Definition Language files. |
+| `zipalign` | Align APK ZIP entries. |
+| `apksigner` | Sign and verify APKs using Java. |
+| `split-select` | Select APK splits for a device configuration. |
+| JDK / `java` / `javac` | JDK 11 is the initial default; provisioning supports 11, 17, and 21. Ubuntu and Arch provision all three through system packages; Debian downloads managed JDKs on demand. |
+| Gradle | Supplied by each Android project's Gradle wrapper (`./gradlew`). Setup configures its environment and native AAPT2 override. |
+| Kotlin compiler and Android Gradle Plugin | Resolved by the project's Gradle configuration; no standalone Kotlin compiler is installed. |
+| CMake, Ninja, Make, `pkg-config`, host C/C++ compilers | Installed as base prerequisites on Ubuntu and Arch. Debian's base setup does not provision these; its managed QEMU build installs build prerequisites when needed. These host tools do not constitute an Android NDK. |
+| Python and download/archive utilities | Support SDK management, downloads, extraction, and AVD management. Exact prerequisites vary by distribution. |
+| Waydroid | Optional Android container runtime, enabled with `--emulator waydroid`. |
+| Android Emulator / Android QEMU | Optional, experimental AVD backend. Use a verified community ARM64 emulator package, a managed source build, or a compatible supplied binary. |
+| Android NDK | Not provisioned. C/C++ Android builds require a separately supplied ARM64-host-compatible NDK. |
+
+Setup installs a baseline SDK configuration, not every SDK platform or build
+module a project may request. Check your project's `compileSdk`, build tools,
+Gradle, plugin, and JDK requirements before building.
+
+### Why native ARM64 tools matter
+
+Android builds execute host programs as well as compile code for a target
+device. An `arm64-v8a` device target does not make an x86-64 host executable run
+on Linux ARM64.
+
+Setup links native tools into build tools 29.0.2 and configures
+`android.aapt2FromMavenOverride` to avoid Gradle downloading an x86-64 AAPT2
+binary. Additional SDK build-tools versions are not automatically patched by
+this installer; downloading a package alone does not establish ARM64 host
+compatibility.
+
+## Java, Kotlin, and NDK C/C++ projects
+
+### Java and Kotlin
+
+Both use the Android project's existing Gradle configuration:
+
+```bash
+cd /path/to/your/android-project
+source "$HOME/.config/android-arm64/env.sh"
+./gradlew assembleDebug
+./gradlew test
 apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Android Studio and an NDK are not needed to build. Installing the APK with
-`adb install -r` targets a connected, authorized Android device or one of the
-opt-in emulators below.
+When sourced, the environment looks for direct Android Gradle Plugin version
+declarations in `.gradle` and `.gradle.kts` files. It selects JDK 17 for detected
+plugin major versions 8 and above, and JDK 11 otherwise. This is a heuristic:
+indirect declarations such as version catalogs may not be detected, and a
+project may require a different JDK.
 
-### Android emulator (Waydroid)
+To explicitly provision and use one of the available JDK versions, run the
+following from this repository, choosing 11, 17, or 21 to match your project:
 
-`--emulator waydroid` provisions [Waydroid](https://waydro.id/) as the Android
-emulator after the normal toolchain install. It is the one step that needs
-`sudo`: Debian enables `trixie-backports` (the only archive carrying `waydroid`
-and `python3-gbinder`), and Ubuntu adds the official Waydroid repository on
-releases that predate the Ubuntu archive copy. Android images are downloaded
-once, as GAPPS by default; `--waydroid-image vanilla` selects the smaller image
-without Google apps.
+```bash
+jdk_home="$(./setup-android-arm64.sh --ensure-jdk 21 --skip-system-packages)"
+cd /path/to/your/android-project
+source "$HOME/.config/android-arm64/env.sh"
+export JAVA_HOME="$jdk_home"
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew -Dorg.gradle.java.home="$JAVA_HOME" assembleDebug
+```
+
+Run this after base setup. On Ubuntu and Arch, the selected JDK must already
+be installed; Debian can download a missing managed JDK. The explicit Gradle
+property overrides the generated JDK default. Project compatibility still
+depends on its chosen Gradle and plugin versions.
+
+### NDK C/C++ and JNI
+
+Java or Kotlin apps can include native C/C++ libraries through their existing
+Gradle `externalNativeBuild` configuration, using CMake or ndk-build. Before
+building such a project:
+
+- Supply an NDK with host executables that run on **Linux ARM64**, including its
+  compiler and required build tools. An NDK targeting ARM64 Android devices
+  alone is insufficient.
+- Point the project at that NDK using its supported Android Gradle Plugin
+  configuration and match the project's required NDK version.
+- Provide ARM64-native CMake and Ninja when the project uses them, or the
+  appropriate ndk-build tooling for its build configuration.
+
+Then use the same `./gradlew assembleDebug` workflow. This repository does not
+currently supply or validate an NDK toolchain, so NDK builds require additional
+setup and are not a verified out-of-the-box capability.
+
+## Run and debug apps
+
+### Physical Android device
+
+Enable USB debugging on the device, connect it, and accept its authorization
+prompt. The host also needs permission to access the USB device.
+
+```bash
+adb devices
+adb install -r /path/to/app-debug.apk
+adb shell am start -n com.example.app/.MainActivity
+adb logcat
+```
+
+Replace the APK path and activity with your app's values. If multiple devices
+are connected, select one with `adb -s SERIAL`.
+
+### Waydroid
+
+Waydroid runs Android in a container and needs a compatible Linux kernel and a
+Wayland desktop session. Enable it during setup:
 
 ```bash
 ./setup-android-arm64.sh --accept-licenses --emulator waydroid
 source "$HOME/.config/android-arm64/env.sh"
-android_arm64_emulator_install views-widgets-samples/RecyclerViewKotlin/app/build/outputs/apk/debug/app-debug.apk
-android_arm64_emulator_launch <package.name>
+android_arm64_emulator_show_ui
+android_arm64_emulator_install /path/to/app-debug.apk
+android_arm64_emulator_launch com.example.app
 ```
 
-The generated helpers treat Waydroid as a normal adb device:
-`android_arm64_emulator_start`, `android_arm64_emulator_doctor`,
-`android_arm64_emulator_stop`, `android_arm64_emulator_status`,
-`android_arm64_emulator_connect`, `android_arm64_emulator_install`,
-`android_arm64_emulator_launch`, `android_arm64_emulator_logcat`, and
-`android_arm64_emulator_show_ui`. The first adb connection raises a USB
-debugging prompt inside the Waydroid window; accept it once with
-`android_arm64_emulator_show_ui` on screen.
+Accept the USB debugging prompt in the Waydroid window when connecting with
+adb for the first time. Setup uses a GAPPS image by default;
+`--waydroid-image vanilla` selects an image without Google apps.
+`--waydroid-size 320x690` controls the window size, with density derived from
+its width; `320x690` is the default.
 
-`android_arm64_emulator_start` re-invokes
-`setup-android-arm64.sh --emulator-start waydroid`, which never touches the
-package manager, so a reboot only needs that one command to bring the emulator
-back. Both that command and setup wait for Android to reach the network, and if
-it does not, `emulator_doctor` takes over: in a VM without working 3D
-acceleration, SurfaceFlinger aborts on GPU buffers, which silently stalls
-Android before it ever gets an address, and therefore before adb exists. The
-doctor reads the crash records under `~/.local/share/waydroid/data/`, and when
-it finds that failure it applies Waydroid's documented software-rendering fix
-(`ro.hardware.gralloc=default`, `ro.hardware.egl=swiftshader`, then
-`sudo waydroid upgrade -o`) and restarts the session, without ever overwriting
-a GL driver you configured yourself. Run it on demand with
-`android_arm64_emulator_doctor` or
-`setup-android-arm64.sh --emulator-doctor waydroid`. `--skip-system-packages`
-likewise makes the emulator step verify-only. Waydroid runs in a Wayland
-session: the container service starts anywhere, but the session has to be
-started from a Wayland desktop.
+Provisioning may enable Debian backports or add the official Waydroid
+repository on Ubuntu when needed. Arch uses its configured repositories.
+Waydroid packages, container services, and images require system-level changes.
 
-The window is phone sized by default: setup writes a display override of
-`320x690` pixels plus a derived `ro.sf.lcd_density` of 130 (scaled from the
-1080x2340 @ 440 dpi reference, so apps lay out at a normal ~393 dp phone
-width) into `/var/lib/waydroid/waydroid.cfg`. That fits a 1280x768 desktop
-with room to spare instead of stretching across the whole screen.
-`--waydroid-size WIDTHxHEIGHT` (each side 100-9999) picks a different size;
-the density follows from the width, and an existing installation picks the
-setting up on the next setup run, which restarts the session.
+After a reboot, load the environment and run:
 
-Waydroid does not provide a title-bar setting in `waydroid.cfg`; window
-decorations depend on the desktop compositor. Where the compositor decorates
-the Waydroid surface, use its title bar to move the window. GNOME does not add
-a title bar, but setup prints a reminder that you can hold Super and drag the
-window to move it. Desktop shortcuts can also resize or maximize it (for
-example, Alt+F8 to resize and Super+Up to maximize in GNOME). Starting a
-session never opens a window by itself, so after a reboot run
-`android_arm64_emulator_start` and `android_arm64_emulator_show_ui`.
+```bash
+android_arm64_emulator_start
+android_arm64_emulator_show_ui
+```
+
+The session must start from a Wayland desktop. On GNOME, hold Super and drag
+to move a window without a title bar.
 
 ### Android Virtual Devices (experimental)
 
-Create a new Medium Phone AVD from an installed or downloadable ARM64 Android
-system image. List image package IDs, then use one with `--avd-create`. The
-interactive picker offers the same images and calls the same CLI creation
-command, so both routes create the same files. These commands do not need KVM,
-an emulator binary, root access, or the rest of the build toolchain:
+The AVD tools can discover ARM64 system images, create devices, import an
+existing AVD, and select the active device. **Boot, graphical output, adb
+transport, and app-data persistence still require acceptance on Linux ARM64.**
+AVD creation alone does not establish that an image will boot.
+
+First install the base toolchain as shown above. To download and register the
+community Linux AArch64 Android Emulator package:
+
+```bash
+./get-android-emulator-aarch64.sh
+```
+
+This fetches the latest release from the
+[community emulator project](https://github.com/Changqing-JING/android-emulator-aarch64-linux/releases),
+checks the published SHA-256, archive size and contents, and verifies that the
+launcher and engine are Linux AArch64 binaries. This package is separate from
+Google's SDK releases. Run the script again to check for a newer release.
+
+List images, then create an AVD using an exact package ID from that output:
 
 ```bash
 ./setup-android-arm64.sh --avd-list-images
-./setup-android-arm64.sh --avd-create My_Phone \
-  --avd-image 'system-images;android-36;google_apis_playstore_ps16k;arm64-v8a'
-# Or choose an image and enter a name in the terminal picker:
-./setup-android-arm64.sh --avd-tui
+./setup-android-arm64.sh --avd-create My_Phone --avd-image 'PACKAGE_ID_FROM_LIST'
 ./setup-android-arm64.sh --avd-list
-```
-
-The package ID above is an example; use an ID currently shown by
-`--avd-list-images`. The selected image is downloaded from Google's published
-catalog if it is not installed and its declared size and checksum are checked.
-Verified ZIP archives are kept under
-`~/.local/share/android-arm64/cache/avd-images/` and reused on retries.
-`--avd-list-images --json` supplies the picker and scripts. Created AVDs live
-under `~/.local/share/android-arm64/avd/home/`; creation never overwrites an
-existing name. The newest AVD becomes active. Use
-`./setup-android-arm64.sh --avd-select My_Phone` to switch devices after
-stopping any running AVD. `--sdk-root /absolute/path` selects another SDK root;
-later AVD commands use the saved root by default.
-
-Creation writes a 1080×2400, 420 dpi, 2 GB RAM, four-core Medium Phone
-configuration with a 10 GB data partition. Creation accepts SDK images with
-either `userdata.img` or an image-provided `data/` directory. The current QEMU
-runtime can initialize writable disks only from `userdata.img`; `data/`
-directory images can be created but are not yet bootable through this backend.
-QEMU startup is experimental. On first AVD setup, the installer fetches the
-pinned Android QEMU source and builds its Linux AArch64 engine with Ranchu's
-`goldfish_pipe` and `goldfish_fb` devices. The source, build tree, resolved
-Android project manifest, and versioned engine are kept under
-`~/.local/share/android-arm64/cache/android-qemu/` and
-`~/.local/share/android-arm64/avd/qemu/`. This build can take a long time and
-needs substantial free disk space; the source checkout uses depth-1 history to
-reduce Git storage. KVM is used when `/dev/kvm` is accessible;
-otherwise QEMU falls back to TCG software emulation. The machine and Android
-image compatibility have not yet passed a boot acceptance test. A compatible
-prebuilt binary can override the managed build with `--avd-qemu-binary`.
-
-To fetch a precompiled Linux AArch64 emulator explicitly, run
-`./get-android-emulator-aarch64.sh`. This uses the latest release from the
-[community Linux AArch64 emulator project](https://github.com/Changqing-JING/android-emulator-aarch64-linux/releases),
-which is separate from Google's SDK releases. The script requires the release
-asset's published SHA-256, verifies its size and ZIP contents, checks that its
-Android Emulator launcher and QEMU engine are Linux AArch64 binaries, and
-registers the package for this project's AVD backend. The package launches
-through Android Emulator's AVD interface. Verified archives are cached under
-`~/.local/share/android-arm64/cache/community-android-emulator/`; installations
-and release metadata live under `~/.local/share/android-arm64/avd/qemu/community/`.
-Run the script again to check for a newer release. Use `--state-root /absolute/path`
-if setup uses a nondefault `ANDROID_ARM64_STATE_ROOT`. An existing registered
-package is reused by later AVD setup; without one, setup builds the pinned
-Android QEMU source.
-
-```bash
-./setup-android-arm64.sh --accept-licenses
 ./setup-android-arm64.sh --avd-select My_Phone
-./setup-android-arm64.sh --emulator avd
+./setup-android-arm64.sh --accept-licenses --emulator avd
+source "$HOME/.config/android-arm64/env.sh"
 ```
 
-The `--emulator avd` setup reuses a registered emulator package when present;
-otherwise it builds/registers QEMU. It then starts the selected AVD.
-Later starts use `--emulator-start avd` or
-`android_arm64_emulator_start` from the generated environment.
+Alternatively, `--avd-tui` opens the interactive creation picker.
+`--avd-list-images --json` provides the catalog for scripts. Catalog and
+creation commands do not require KVM or an emulator binary. Missing images are
+downloaded from Google's catalog and checked against its size and checksum.
+Creation refuses to overwrite an existing device name and selects the newest
+created AVD. Stop the running AVD before switching devices.
 
-#### Import an existing AVD
+Without a registered emulator package or supplied binary, AVD setup builds a
+pinned Android QEMU engine from source. This can take substantial time and disk
+space. KVM is used when accessible; otherwise the direct QEMU path uses TCG
+software emulation. The direct QEMU path requires `userdata.img` to initialize
+writable disks; images containing only a `data/` directory can be created but
+are not bootable through that path.
 
-`--emulator avd` stages an existing ARM64 Android Virtual Device separately.
-The installer builds the pinned Android `qemu-system-aarch64` engine if it is
-not already present, then invokes it directly with the kernel, ramdisk,
-system/vendor images, and qcow2 writable disks. The direct QEMU launch has not
-passed a boot test. Graphics and the adb TCP property must be validated on a
-Linux ARM64 host before this path can be considered supported. Pass
-`--avd-qemu-binary` to use a compatible prebuilt Android QEMU instead.
+Use `--avd-qemu-binary /absolute/path/to/qemu-system-aarch64` with AVD setup to
+supply a compatible Linux ARM64 Android QEMU engine. It must provide the Android
+Ranchu devices checked by the installer; a generic QEMU binary is insufficient.
+Arch additionally needs a native `qemu-img`; setup reports if its package is
+unavailable in the configured repositories.
 
-The supplied sample is `~/avd/Medium_Phone.ini` (capital `P`) and
-`~/avd/Medium_Phone.avd`. Its configuration requires
-`system-images;android-37.2;google_apis_playstore_ps16k;arm64-v8a`, which is
-not included with the AVD files. Setup checks Google's published system-image
-metadata for that exact package and verifies the downloaded archive checksum.
-The package was absent from the current
-[Google Play image feed](https://dl.google.com/android/repository/sys-img/google_apis_playstore/sys-img2-2.xml)
-when this path was added,
-so this sample cannot complete import until it is republished or an exact
-image is obtained separately. The AVD does not record its original system
-image revision, so boot and app data checks are required before treating a
-downloaded replacement as compatible.
+To import an existing AVD, use
+`--emulator avd --avd-ini /absolute/path/to/Device.ini`. Import stages a copy in
+managed storage and leaves the original untouched. The importer currently
+requires the supplied sample's userdata, encryption-key, and cache overlay
+layout, plus its exact SDK image. See [AVD support and acceptance](AVD-support.md)
+and [Android QEMU build reproduction](ANDROID-QEMU-BUILD-REPRO.md) for details.
+
+### Runtime helpers
+
+After emulator setup, source the environment to access these helpers for the
+selected backend:
+
+| Helper | Action |
+| --- | --- |
+| `android_arm64_emulator_start` | Start an already-provisioned runtime without invoking the package manager. |
+| `android_arm64_emulator_stop` | Stop the runtime. |
+| `android_arm64_emulator_status` | Report runtime or adb status. |
+| `android_arm64_emulator_doctor` | Run backend diagnostics and applicable repairs. |
+| `android_arm64_emulator_connect` | Establish or check the adb connection. |
+| `android_arm64_emulator_install /path/to/app.apk` | Install or replace an APK. |
+| `android_arm64_emulator_launch com.example.app` | Launch an app by package name. |
+| `android_arm64_emulator_logcat` | Read Android logs. |
+| `android_arm64_emulator_show_ui` | Open the Waydroid window; Waydroid only. |
+
+## Configuration and storage
+
+The default managed state directory is `~/.local/share/android-arm64/`:
+
+| Path within managed state | Contents |
+| --- | --- |
+| `sdk/` | SDK platforms, build tools, and registered platform tools. |
+| `bin/` | Native tool links and wrappers. |
+| `jdks/` | Managed Debian JDK downloads and installations. Ubuntu and Arch use system JDK locations. |
+| `host/` | User-local Android host packages and extractions on Debian and Arch. |
+| `gradle/` | Gradle user home, caches, and generated properties. |
+| `avd/` | Managed AVDs, runtime registration, logs, and emulator installations. |
+| `cache/` | Managed QEMU source/build data and verified emulator or image archives. |
+| `env.sh` | Generated environment loaded by `~/.config/android-arm64/env.sh`. |
+
+The environment exports `ANDROID_HOME`, `ANDROID_SDK_ROOT`, `JAVA_HOME`,
+`GRADLE_USER_HOME`, `GRADLE_OPTS`, and the tool `PATH`. Backend-specific library
+or Python paths are configured where needed. Loading it uses the managed
+Gradle user home rather than the shell's previous Gradle user home.
+
+Useful setup options:
+
+| Option | Behavior |
+| --- | --- |
+| `--accept-licenses` | Explicitly authorize Android SDK license acceptance. Required for normal SDK setup. |
+| `--sdk-root /absolute/path` | Choose another SDK directory. Later AVD actions reuse their saved SDK root unless overridden. |
+| `--skip-system-packages` | Use existing host prerequisites and cached local toolsets; does not provision missing host packages. SDK/image downloads and license requirements still apply. |
+| `--ensure-jdk 11\|17\|21` | Provision or verify a JDK and print its home directory. |
+| `--emulator none\|waydroid\|avd` | Choose optional runtime setup; default is `none`. |
+| `--emulator-start waydroid\|avd` | Start an already-provisioned runtime. |
+| `--emulator-doctor waydroid\|avd` | Diagnose an already-provisioned runtime. |
+| `--help` | Print the full command reference. |
+
+Setup is designed to be rerun. A normal run regenerates its environment and
+Gradle properties, so keep project-specific settings in your project rather
+than editing generated files. Previously configured runtime helpers are
+retained when rerunning without `--emulator`.
+
+Set `ANDROID_ARM64_STATE_ROOT=/absolute/path` consistently to relocate managed
+state. The SDK default is independently fixed at
+`~/.local/share/android-arm64/sdk`; pass `--sdk-root` as well to relocate it.
+The community emulator downloader also accepts `--state-root /absolute/path`.
+Waydroid maintains its own system and user data outside managed state.
+
+## Troubleshooting
+
+- **Tools missing from the shell:** source
+  `~/.config/android-arm64/env.sh` in Bash after setup. Re-source from inside
+  the project when relying on automatic JDK selection.
+- **Java or Gradle compatibility errors:** check the project's required JDK,
+  Gradle wrapper, and Android Gradle Plugin versions. Use explicit JDK selection
+  as shown above when automatic detection is insufficient.
+- **Executable format errors or AAPT2 failures:** check the host architecture
+  of the failing binary. Preserve the generated AAPT2 override and remember
+  that extra SDK/NDK packages may contain incompatible host tools.
+- **Missing SDK platform:** compare the project's SDK requirements with the
+  installed API 30 baseline. Extra packages need separate installation and
+  host-tool compatibility checks.
+- **Waydroid starts but never connects:** run
+  `android_arm64_emulator_doctor`. It checks for known graphics failures and
+  can apply Waydroid's software-rendering settings when that failure is found.
+  Ensure the session runs on a Wayland desktop and accept adb authorization in
+  the window.
+- **AVD fails to start:** run `android_arm64_emulator_doctor` and inspect
+  `~/.local/share/android-arm64/avd/emulator.log` (or the equivalent custom
+  state path). Check the image, native engine, and KVM access. AVD boot remains
+  experimental; image discovery or creation success does not guarantee boot.
+- **Arch cached package verification fails:** follow the error naming the
+  corrupt archive, then rerun normal setup. Downloads are checksum-verified and
+  incomplete extractions are not activated.
+
+## Optional example: build a Kotlin app
+
+The original RecyclerView example remains useful as a small build exercise.
+It is an external sample, not the purpose of this repository:
 
 ```bash
-./setup-android-arm64.sh --accept-licenses --emulator avd \
-  --avd-ini "$HOME/avd/Medium_Phone.ini"
+git clone --depth 1 --filter=blob:none --sparse https://github.com/android/views-widgets-samples.git views-widgets-samples
+git -C views-widgets-samples sparse-checkout set RecyclerViewKotlin
+sed -i 's/jcenter()/mavenCentral()/g' views-widgets-samples/RecyclerViewKotlin/build.gradle
+cd views-widgets-samples/RecyclerViewKotlin
 source "$HOME/.config/android-arm64/env.sh"
-android_arm64_emulator_start
-android_arm64_emulator_status
+./gradlew :app:assembleDebug
+apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
 ```
 
-The installer verifies the three qcow2 backing chains, copies the AVD under
-`~/.local/share/android-arm64/avd/home/`, and regenerates its `.ini` with a
-Linux path. This importer currently requires the sample's userdata,
-encryption-key, and cache overlay layout. The copied AVD is about 4.3 GB. Its
-old macOS-generated `hardware-qemu.ini` is left out of the copy. Launch uses a
-cold boot, GTK display, and host-forwarded adb TCP port `127.0.0.1:5555`; saved
-Quick Boot snapshots are not loaded. The original files under `~/avd/` are
-not modified. The usual `android_arm64_emulator_connect`,
-`install`, `launch`, `logcat`, `stop`, and `doctor` helpers are available after
-sourcing the environment. If startup fails, run
-`android_arm64_emulator_doctor` and read the managed `avd/emulator.log`.
+The repository's baseline SDK packages were selected for this older sample,
+which uses Gradle 6.5 and Android Gradle Plugin 4.1.0. Its repository replacement
+moves dependency lookup from `jcenter()` to `mavenCentral()`.
 
-A successful import must reach `sys.boot_completed=1` and retain previously
-installed app data after a stop and restart. Test both TCG and KVM where
-available. This acceptance check must pass before the AVD path can be
-considered supported.
+## Contributing
 
-Support
--------
+Report installer problems or propose changes in
+[this repository](https://github.com/sonique6784/androiddev-for-linux-arm64-aarch64/issues).
+Include your distribution, host architecture, command, and relevant output.
 
-- Stack Overflow: http://stackoverflow.com/questions/tagged/android
+The public installer is `setup-android-arm64.sh`. Distribution modules live in
+`lib/android-arm64/platforms/`; optional runtime modules live in
+`lib/android-arm64/emulators/`. New backends implement the shared contract
+rather than adding another public installer.
 
-If you've found an error in this sample, please file an issue:
-https://github.com/android/views-widgets
+For implementation changes, the existing backend checks are:
 
-Patches are encouraged, and may be submitted by forking this project and
-submitting a pull request through GitHub. Please see CONTRIBUTING.md for more details.
+```bash
+bash tests/backend-contract.sh
+python3 tests/arch-backend.py
+```
+
+These checks do not replace a real Linux ARM64 installation, build, or emulator
+boot acceptance test.

@@ -18,6 +18,8 @@ done
 for module in "$root"/lib/android-arm64/emulators/*.sh; do
     [[ -e "$module" ]] || continue
     bash -n "$module"
+    # The QEMU source builder is a helper, not an emulator backend.
+    [[ "${module##*/}" != build-android-qemu.sh ]] || continue
     for function in $emulator_required; do
         grep -qE "^$function[[:space:]]*\(\)" "$module" || {
             echo "$module does not implement $function" >&2

@@ -1,0 +1,22 @@
+# Debian 13 (trixie) Android toolset for Arch Linux ARM.
+# Pinned from Debian repository Packages metadata; review versions and hashes together.
+# Fields: package version architecture sha256 HTTPS-URL
+aapt 1:14~beta1-3 arm64 e5b7af14be126c7c9ea17fb98ea7575f2b9b86d56034711f7582d6afbbd5e6ee https://deb.debian.org/debian/pool/main/a/android-platform-frameworks-base/aapt_14~beta1-3_arm64.deb
+aidl 1:10.0.0+r36-4+b1 arm64 1e0d686e7c2275254dcb7275fee2ce5f0dab355077713c990d90592821733ebe https://deb.debian.org/debian/pool/main/a/android-platform-system-tools-aidl/aidl_10.0.0+r36-4+b1_arm64.deb
+zipalign 1:10.0.0+r36-1.1 arm64 140289c75a489b6e2db5403bcbac62262d9cd955929c4d03fdb676f70ef0a80f https://deb.debian.org/debian/pool/main/a/android-platform-build/zipalign_10.0.0+r36-1.1_arm64.deb
+split-select 1:14~beta1-3 arm64 9cae96e5a9d4e9cdeb1e870c36e020fe5e022554bae605b97e7c168d4ca62c0f https://deb.debian.org/debian/pool/main/a/android-platform-frameworks-base/split-select_14~beta1-3_arm64.deb
+apksigner 35.0.2-1 all 5525a18d6a4cbb5025c2f74def51fa170b9eefdb98e3be18bb3d5207ed857797 https://deb.debian.org/debian/pool/main/a/android-platform-tools-apksig/apksigner_35.0.2-1_all.deb
+libapksig-java 35.0.2-1 all 231c0f14ff5362b62bf92cdfdfbad6338f45f8c2e612dc4c1c96b542160ffe2f https://deb.debian.org/debian/pool/main/a/android-platform-tools-apksig/libapksig-java_35.0.2-1_all.deb
+sdkmanager 0.6.11-2 all 9a21fbb764d7eda94e463b0555962a3b3db2760578d28749e02c4e99b10c9f8e https://deb.debian.org/debian/pool/main/s/sdkmanager/sdkmanager_0.6.11-2_all.deb
+python3-looseversion 1.3.0-3 all 62a036b492648c29db1721b99eca66c005e8a2321a9b0d52432d24e4cfbb3013 https://deb.debian.org/debian/pool/main/p/python-looseversion/python3-looseversion_1.3.0-3_all.deb
+android-libaapt 1:14~beta1-3 arm64 cc3e226dddaa2286fe13b3d3e0421b665a87169a1864493107abb29e54bf7321 https://deb.debian.org/debian/pool/main/a/android-platform-frameworks-base/android-libaapt_14~beta1-3_arm64.deb
+android-libandroidfw 1:14~beta1-3 arm64 10761936b069e907ad88889ee359fcebf2b3ebe56e78416e08019a5a9d00c489 https://deb.debian.org/debian/pool/main/a/android-platform-frameworks-base/android-libandroidfw_14~beta1-3_arm64.deb
+android-libbase 1:34.0.5-12 arm64 1b1460faa12cf04611cb58ff02808608fd2e3be642b72752a189c4ab84112a20 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-libbase_34.0.5-12_arm64.deb
+android-libutils 1:34.0.5-12 arm64 c397f2a00a5ecdd7c59bb49b22bd97729a416cdd37616e99a410f31e47f809c0 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-libutils_34.0.5-12_arm64.deb
+android-libcutils 1:34.0.5-12 arm64 683ec66783e0d54e91bee661af7f758528b2c85163d585ae936d1cfd5bf8d661 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-libcutils_34.0.5-12_arm64.deb
+android-liblog 1:34.0.5-12 arm64 7ce80b00c4592d0021ce2973d922f1c014fbbe33a289690732dfb556bfbbec96 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-liblog_34.0.5-12_arm64.deb
+android-libziparchive 1:34.0.5-12 arm64 fe92ec46af11b26bcb51d107d7e016fdaa9fa60186bcda7289ada0be05e67b11 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-libziparchive_34.0.5-12_arm64.deb
+android-libbacktrace 1:34.0.5-12 arm64 04c1dac957f1c8ddd4226517ae08cab061b9e9f788857babdcb5493f43215483 https://deb.debian.org/debian/pool/main/a/android-platform-tools/android-libbacktrace_34.0.5-12_arm64.deb
+libzopfli1 1.0.3-3 arm64 455bcc3f802c67a2b41d5c16ffda04ebbc4167abe6c5d7201e9a4b3517d0e279 https://deb.debian.org/debian/pool/main/z/zopfli/libzopfli1_1.0.3-3_arm64.deb
+libprotobuf32t64 3.21.12-11+deb13u1 arm64 51bf38fcca667be0deef732a903563ee6ffa9bfc04433310c2c49e4c92d06b09 https://deb.debian.org/debian/pool/main/p/protobuf/libprotobuf32t64_3.21.12-11+deb13u1_arm64.deb
+7zip 25.01+dfsg-1~deb13u2 arm64 1cee2b61a2107fedd3d8c31265171ef6fbfb86a0a995df98a6066dfca66b1982 https://deb.debian.org/debian/pool/main/7/7zip/7zip_25.01+dfsg-1~deb13u2_arm64.deb

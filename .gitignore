@@ -1,6 +1,7 @@
 # Obsolete pre-refactor toolchain state. The installer now uses ~/.local/share/android-arm64.
 .android-arm64/
 __pycache__
+.DS_Store
 # Sparse clone of the sample app; recreate with the commands in README.md.
 views-widgets-samples/
 # Local QEMU checkout/build state and generated/downloaded archives.

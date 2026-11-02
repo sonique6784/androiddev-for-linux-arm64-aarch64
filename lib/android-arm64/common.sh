@@ -12,7 +12,7 @@ Usage: ./setup-android-arm64.sh [--sdk-root PATH] [--accept-licenses] [--skip-sy
                                  [--avd-list | --avd-select NAME]
                                  [--ensure-jdk 11|17|21] [--emulator-start NAME]
                                  [--emulator-doctor NAME]
-Supported hosts: Ubuntu and Debian 13 on ARM64.
+Supported hosts: Ubuntu, Debian 13, and Arch Linux / Arch Linux ARM on ARM64.
 Android emulators: none (default), waydroid, and avd (requires Android-enabled ARM64 QEMU).
 EOF
 }
@@ -86,6 +86,7 @@ android_arm64_load_backend() {
     source /etc/os-release
     case "$ID" in
         ubuntu|debian) ANDROID_ARM64_PLATFORM="$ID" ;;
+        arch|archarm) ANDROID_ARM64_PLATFORM=arch ;;
         *) echo "Unsupported distribution: $ID. Add a backend under lib/android-arm64/platforms/." >&2; return 1 ;;
     esac
     source "$ANDROID_ARM64_SCRIPT_DIR/lib/android-arm64/platforms/$ANDROID_ARM64_PLATFORM.sh"
